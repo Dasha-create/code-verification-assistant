@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Review Assistant</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+        .panel {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .language-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .lang-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .lang-btn:hover {
+            background: #f0f0ff;
+        }
+        .lang-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+            background: white;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .analyze-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: transform 0.2s;
+        }
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+        }
+        .analyze-btn:active {
+            transform: translateY(0);
+        }
+        .results {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .issue {
+            background: white;
+            border-left: 4px solid #ff6b6b;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .issue.warning {
+            border-left-color: #ffa500;
+        }
+        .issue.info {
+            border-left-color: #4ecdc4;
+        }
+        .issue-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .severity-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .severity-badge.high {
+            background: #ffe0e0;
+            color: #ff6b6b;
+        }
+        .severity-badge.medium {
+            background: #fff4e0;
+            color: #ffa500;
+        }
+        .severity-badge.low {
+            background: #e0f7f6;
+            color: #4ecdc4;
+        }
+        .issue-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        .issue-description {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        .issue-line {
+            background: #f0f0f0;
+            padding: 8px 10px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            color: #333;
+            margin-top: 8px;
+        }
+        .no-issues {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .no-issues .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat {
+            flex: 1;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Code Review Assistant</h1>
+            <p>Paste your code to quickly identify common issues in Python, PHP, and JavaScript/TypeScript</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="panel">
+                <h2>📝 Paste Your Code</h2>
+                <div class="language-selector">
+                    <button class="lang-btn active" data-lang="python">Python</button>
+                    <button class="lang-btn" data-lang="php">PHP</button>
+                    <button class="lang-btn" data-lang="javascript">JavaScript</button>
+                    <button class="lang-btn" data-lang="typescript">TypeScript</button>
+                </div>
+                <textarea id="codeInput" placeholder="Paste your code here..."></textarea>
+                <button class="analyze-btn" onclick="analyzeCode()">🔍 Analyze Code</button>
+            </div>
+            
+            <div class="panel">
+                <h2>🎯 Issues Found</h2>
+                <div class="stats" id="stats" style="display: none;">
+                    <div class="stat">
+                        <div class="stat-number" id="totalIssues">0</div>
+                        <div class="stat-label">Total Issues</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number" id="highIssues">0</div>
+                        <div class="stat-label">High Priority</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number" id="mediumIssues">0</div>
+                        <div class="stat-label">Medium Priority</div>
+                    </div>
+                </div>
+                <div class="results" id="results">
+                    <div class="no-issues">
+                        <div class="icon">👋</div>
+                        <p>Paste some code and click "Analyze Code" to get started!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLanguage = 'python';
+
+        // Language selector
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentLanguage = this.dataset.lang;
+            });
+        });
+
+        function analyzeCode() {
+            const code = document.getElementById('codeInput').value.trim();
+            
+            if (!code) {
+                showNoIssues('Please paste some code first!');
+                return;
+            }
+
+            const lines = code.split('\n');
+            let issues = [];
+
+            if (currentLanguage === 'python') {
+                issues = analyzePython(lines);
+            } else if (currentLanguage === 'php') {
+                issues = analyzePhp(lines);
+            } else if (currentLanguage === 'javascript' || currentLanguage === 'typescript') {
+                issues = analyzeJavaScript(lines, currentLanguage === 'typescript');
+            }
+
+            displayResults(issues);
+        }
+
+        function analyzePython(lines) {
+            const issues = [];
+
+            lines.forEach((line, i) => {
+                const lineNum = i + 1;
+                const trimmed = line.trim();
+
+                // Security: SQL injection risk
+                if (/execute\s*\(.*[f"'].*%.*['"]/.test(line) || /execute\s*\(.*\+/.test(line)) {
+                    issues.push({
+                        severity: 'high',
+                        title: 'Potential SQL Injection',
+                        description: 'String formatting or concatenation in SQL queries. Use parameterized queries instead.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // Bare except
+                if (/except\s*:/.test(trimmed) && !trimmed.includes('except Exception')) {
+                    issues.push({
+                        severity: 'medium',
+                        title: 'Bare Except Clause',
+                        description: 'Catching all exceptions can hide bugs. Specify exception types.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // Mutable default arguments
+                if (/def\s+\w+\s*\([^)]*=\s*(\[\]|\{\})/.test(line)) {
+                    issues.push({
+                        severity: 'high',
+                        title: 'Mutable Default Argument',
+                        description: 'Using mutable objects (list/dict) as default arguments can cause unexpected behavior.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // Using eval or exec
+                if (/\b(eval|exec)\s*\(/.test(line)) {
+                    issues.push({
+                        severity: 'high',
+                        title: 'Dangerous Function: eval/exec',
+                        description: 'eval() and exec() can execute arbitrary code. Avoid or sanitize input carefully.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // == None instead of is None
+                if (/==\s*None|None\s*==/.test(line)) {
+                    issues.push({
+                        severity: 'low',
+                        title: 'Use "is None" instead of "== None"',
+                        description: 'Comparing to None should use "is" operator, not "==".',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // Missing f-string
+                if (/["'].*\{[^}]+\}.*["']/.test(line) && !line.includes('f"') && !line.includes("f'")) {
+                    if (!/\.format\(/.test(line)) {
+                        issues.push({
+                            severity: 'low',
+                            title: 'Possible Missing f-string',
+                            description: 'String contains curly braces but may be missing f-string prefix.',
+                            line: lineNum,
+                            code: line.trim()
+                        });
+                    }
+                }
+
+                // Global variables
+                if (/^global\s+/.test(trimmed)) {
+                    issues.push({
+                        severity: 'medium',
+                        title: 'Global Variable Usage',
+                        description: 'Global variables can make code harder to test and maintain. Consider using function parameters or classes.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+            });
+
+            return issues;
+        }
+
+        function analyzePhp(lines) {
+            const issues = [];
+
+            lines.forEach((line, i) => {
+                const lineNum = i + 1;
+                const trimmed = line.trim();
+
+                // SQL injection
+                if (/\$_(GET|POST|REQUEST)/.test(line) && /query|execute|prepare/.test(line)) {
+                    if (!/(bind_param|bindValue|prepare)/.test(line)) {
+                        issues.push({
+                            severity: 'high',
+                            title: 'Potential SQL Injection',
+                            description: 'User input directly in query. Use prepared statements with bound parameters.',
+                            line: lineNum,
+                            code: line.trim()
+                        });
+                    }
+                }
+
+                // XSS vulnerability
+                if (/echo\s+\$_(GET|POST|REQUEST)/.test(line) && !/htmlspecialchars|htmlentities/.test(line)) {
+                    issues.push({
+                        severity: 'high',
+                        title: 'Potential XSS Vulnerability',
+                        description: 'Outputting user input without sanitization. Use htmlspecialchars() or htmlentities().',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // Using mysql_ functions (deprecated)
+                if (/mysql_(query|connect|select_db|fetch)/.test(line)) {
+                    issues.push({
+                        severity: 'high',
+                        title: 'Deprecated mysql_* Functions',
+                        description: 'mysql_* functions are removed in PHP 7+. Use mysqli or PDO instead.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // == vs ===
+                if (/if\s*\([^)]*==(?!=)/.test(line) && !/===/.test(line)) {
+                    issues.push({
+                        severity: 'medium',
+                        title: 'Loose Comparison (==)',
+                        description: 'Consider using strict comparison (===) to avoid type coercion issues.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // Suppressed errors with @
+                if (/^\s*@/.test(trimmed) || /\s@\w+\(/.test(line)) {
+                    issues.push({
+                        severity: 'medium',
+                        title: 'Error Suppression Operator (@)',
+                        description: 'Suppressing errors can hide bugs. Handle errors explicitly instead.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // eval() usage
+                if (/\beval\s*\(/.test(line)) {
+                    issues.push({
+                        severity: 'high',
+                        title: 'Dangerous Function: eval()',
+                        description: 'eval() executes arbitrary code and is a major security risk.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+            });
+
+            return issues;
+        }
+
+        function analyzeJavaScript(lines, isTypeScript) {
+            const issues = [];
+
+            lines.forEach((line, i) => {
+                const lineNum = i + 1;
+                const trimmed = line.trim();
+
+                // var instead of let/const
+                if (/\bvar\s+/.test(line)) {
+                    issues.push({
+                        severity: 'medium',
+                        title: 'Using "var" keyword',
+                        description: 'Prefer "let" or "const" over "var" for better scoping and readability.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // == instead of ===
+                if (/[^=!><]==[^=]/.test(line) && !/===/.test(line)) {
+                    issues.push({
+                        severity: 'medium',
+                        title: 'Loose Equality (==)',
+                        description: 'Use strict equality (===) to avoid type coercion issues.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // eval() usage
+                if (/\beval\s*\(/.test(line)) {
+                    issues.push({
+                        severity: 'high',
+                        title: 'Dangerous Function: eval()',
+                        description: 'eval() can execute arbitrary code. Avoid it or sanitize input carefully.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // innerHTML with user data
+                if (/innerHTML\s*=/.test(line) && !/(sanitize|DOMPurify|textContent)/.test(line)) {
+                    issues.push({
+                        severity: 'high',
+                        title: 'Potential XSS with innerHTML',
+                        description: 'Setting innerHTML with unsanitized data can lead to XSS. Use textContent or sanitize the input.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // console.log in production
+                if (/console\.(log|warn|error|info)/.test(line)) {
+                    issues.push({
+                        severity: 'low',
+                        title: 'Console Statement',
+                        description: 'Remove console statements before deploying to production.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // Callback hell indicators
+                if (/(function\s*\([^)]*\)\s*{[^}]*function\s*\([^)]*\)\s*{)/.test(line)) {
+                    issues.push({
+                        severity: 'medium',
+                        title: 'Nested Callbacks',
+                        description: 'Deep callback nesting (callback hell). Consider using Promises or async/await.',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // Any type in TypeScript
+                if (isTypeScript && /:\s*any\b/.test(line)) {
+                    issues.push({
+                        severity: 'low',
+                        title: 'Using "any" Type',
+                        description: 'The "any" type defeats TypeScript\'s type checking. Use specific types or "unknown".',
+                        line: lineNum,
+                        code: line.trim()
+                    });
+                }
+
+                // Missing await on promises
+                if (/\.(then|catch)\(/.test(line) && /^(?!.*await)/.test(line)) {
+                    if (/async/.test(lines.slice(Math.max(0, i - 5), i).join('\n'))) {
+                        issues.push({
+                            severity: 'medium',
+                            title: 'Consider using async/await',
+                            description: 'In async functions, consider using await instead of .then() for better readability.',
+                            line: lineNum,
+                            code: line.trim()
+                        });
+                    }
+                }
+            });
+
+            return issues;
+        }
+
+        function displayResults(issues) {
+            const resultsDiv = document.getElementById('results');
+            const statsDiv = document.getElementById('stats');
+            
+            if (issues.length === 0) {
+                showNoIssues('✅ No common issues found! Great job!');
+                return;
+            }
+
+            // Calculate stats
+            const highCount = issues.filter(i => i.severity === 'high').length;
+            const mediumCount = issues.filter(i => i.severity === 'medium').length;
+            
+            statsDiv.style.display = 'flex';
+            document.getElementById('totalIssues').textContent = issues.length;
+            document.getElementById('highIssues').textContent = highCount;
+            document.getElementById('mediumIssues').textContent = mediumCount;
+
+            // Sort by severity
+            const severityOrder = { high: 0, medium: 1, low: 2 };
+            issues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+            resultsDiv.innerHTML = issues.map(issue => `
+                <div class="issue ${issue.severity}">
+                    <div class="issue-header">
+                        <span class="severity-badge ${issue.severity}">${issue.severity}</span>
+                        <span class="issue-title">${issue.title}</span>
+                    </div>
+                    <div class="issue-description">${issue.description}</div>
+                    <div class="issue-line">Line ${issue.line}: ${escapeHtml(issue.code)}</div>
+                </div>
+            `).join('');
+        }
+
+        function showNoIssues(message) {
+            document.getElementById('stats').style.display = 'none';
+            document.getElementById('results').innerHTML = `
+                <div class="no-issues">
+                    <div class="icon">✨</div>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
